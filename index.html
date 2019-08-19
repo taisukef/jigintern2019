@@ -1,0 +1,356 @@
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>jigintern2019 - 参加高専マップ</title>
+<link rel="apple-touch-icon" href="jigitern2019.png"/>
+<meta property="og:image" content="jigitern2019.png">
+<meta name="format-detection" content="telephone=no"/>
+<head>
+<script src=https://fukuno.jig.jp/fukuno.js></script>
+<script>"use strict";
+
+window.onload = function() {
+	init()
+}
+const init = function() {
+	const urlkosen = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRvTo-geReUG_iMRR9SAggHS7RWAsZGIGIVJiOzGQejZc6ozViupDHospQ0y3YuThJXRLKzWO0go94y/pub?gid=0&single=true&output=csv&0.csv"
+	const urlmembers = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQWczPr4oUuh9cWiVuYutjx54aN2PlZkfxa4c_t7n7MmaaDETIgy4tt7rffCf9E4X6eDwvlmBjiHZXt/pub?gid=0&single=true&output=csv&3.csv"
+	getJSON(urlkosen, function(csv) {
+//		dump(csv)
+		const s = makeJapanHTML()
+		get("japan").innerHTML += s
+
+		getJSON(urlmembers, function(csvmembers) {
+			//dump(members) // ID, alias, kosen
+			const members = []
+			const head = csvmembers[0]
+			for (let i = 1; i < csvmembers.length; i++) {
+				const m = {}
+				for (let j = 0; j < head.length; j++) {
+					m[head[j]] = csvmembers[i][j]
+				}
+				members.push(m)
+			}
+			setData(csv, members)
+		}, "utf-8")
+	}, "utf-8")
+}
+const setData = function(csv, members) {
+	const data = csv
+	const campus = {}
+	for (let i = 1; i < data.length; i++) {
+		let c = data[i]
+		c.id = i
+		campus[c[2]] = c // kosen.shortname2
+	}
+	let nvisit = 0
+	for (let i = 1; i <= 63; i++) {
+		const c = get("jp" + i)
+		c.num = i - 1
+		const bg = "rgba(210,210,210,0.1)"
+		const fg = "black"
+		const name = c.textContent
+		c.data = campus[name]
+
+		for (const m of members) {
+			if (m.kosen == name)
+				c.flg = true
+		}
+		if (c.flg)
+			nvisit++
+		c.style.backgroundColor = c.flg ? "rgba(255,130,130,1)" : bg
+		c.style.color = fg // cnt < 10 ? "black" : "white";
+
+		c.sel = function() {
+			const d = this.data
+			const mm = []
+			for (const m of members) {
+				if (m.kosen == this.textContent)
+					mm.push(m.alias)
+			}
+			let s = ""
+			if (mm.length > 0) {
+				s += "参加者：" + mm.join(",") + "<br>"
+			}
+			s += "<a href=" + d[7] + " target=_blank>" + d[0] + "</a>"
+			s += "<br>所在地：" + d[6] + "<br>オーナー：" + d[3] + "<br>タイプ：" + d[4]
+			if (d[8] && d[9])
+				s += "<br>正面玄関緯度経度：" + d[8] + "," + d[9]
+			else {
+				const link = "https://docs.google.com/spreadsheets/d/1ByyqGhNBBSH7gV5IAUMaQ7zN68gEkKnSzWpJPUCdbsY/edit?usp=sharing"
+				s += "<br>正面玄関緯度経度：<a href=" + link + " target=_blank>オープンデータ編集求む！</a>"
+			}
+			get("box").innerHTML = s
+		}
+		c.onclick = function() {
+			this.sel()
+		}
+	}
+	get("box").innerHTML = "jigintern2019<br>参加者：" + members.length + "<br>参加高専数：" + nvisit
+	
+	for (const m of members) {
+		const c = campus[m.kosen]
+//		dump(c)
+//		break
+		m.name = c[0]
+		m.city = c[6]
+		m.url = c[7]
+		m.lat = c[8]
+		m.lng = c[9]
+	}
+	get("tbl").appendChild(makeTableJSON(members))
+}
+// make table
+const makeTableJSON = function(data) {
+	const tbl = create("table")
+	let tr = create("tr")
+	const d = data[0]
+	const ar = []
+	for (const name in d) {
+		const th = create("th")
+		th.textContent = name
+		ar.push(name)
+		tr.appendChild(th)
+	}
+	tbl.appendChild(tr)
+	
+	const link = function(url, s) {
+		if (!s)
+			s = url
+		return "<a href=" + url + " target=_blank>" + s + "</a>"
+	}
+	
+	for (const d of data) {
+		tr = create("tr")
+		for (let j = 0; j < ar.length; j++) {
+			const td = create("td")
+			let val = d[ar[j]]
+			if (val.startsWith("http://") || val.startsWith("https://"))
+				val = link(val, val)
+			td.innerHTML = val
+			tr.appendChild(td)
+		}
+		tbl.appendChild(tr)
+	}
+	return tbl
+}
+
+
+// --
+const PREF = [ "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県", "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県", "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県" ]
+
+const KOSEN_S = [ "函館", "秋田", "一関", "名取", "鶴岡", "広瀬", "福島", "茨城", "小山", "群馬", "荒川", "木更津", "品川", "サレジオ", "長岡", "本郷", "金沢", "白山", "東京", "長野", "岐阜", "沼津", "豊田", "鈴鹿", "福井", "舞鶴", "明石", "神戸", "奈良", "近大", "米子", "松江", "津山", "広島", "宇部", "詫間", "阿南", "高松", "高知", "有明", "北九州", "佐世保", "熊本", "大分", "都城", "鹿児島", "沖縄", "呉", "新居浜", "弓削", "大島", "八代", "大阪", "久留米", "八戸", "石川", "苫小牧", "旭川", "釧路", "鳥羽", "和歌山", "射水", "徳山", "" ]
+
+const KOSEN = [
+	"           45",
+	"           A6",
+	"             ",
+	"           B2",
+	"           EC",
+	"p       39 OF",
+	"no ifegYQPTJD",
+	"q1 +yvaZRUSKG",
+	"zr   hbWVNMHI",
+	"ts     0X   L",
+	"   xjl cd    ",
+	"u  wmk 87    "
+]
+
+const encbase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+const encbase62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+const to64 = function(n) {
+	return encbase64.charAt(n)
+}
+const from64 = function(c) {
+	return encbase64.indexOf(c)
+}
+const makeJapanHTML = function() {
+	const s = []
+	let nk = 0
+	s.push("<table id=jp0>")
+	const chk = {}
+	for (let i = 0; i < KOSEN.length; i++) {
+		s.push("<tr>")
+		const jpn = KOSEN[i]
+		for (let j = 0; j < jpn.length; j++) {
+			const c = jpn.charAt(j)
+			const n = from64(c)
+			if (!chk[c])
+				chk[c] = 1
+			if (n < 0) {
+				s.push("<td></td>")
+			} else {
+				if (i > 0 && KOSEN[i - 1].charAt(j) == c)
+					continue
+				const kosen = KOSEN_S[n]
+				/*
+				if (!kosen)
+					kosen = c;
+				else
+					kosen += c;
+				*/
+				s.push("<td class=pref id=jp" + (n + 1) + ">" + kosen + "</td>")
+				nk++
+			}
+		}
+		s.push("</tr>")
+	}
+	/*
+	for (var i = 0; i < encbase64.length; i++)
+		if (!chk[encbase64.charAt(i)])
+			alert(encbase64.charAt(i))
+	alert(nk)
+	*/
+	s.push("</table>")
+	return s.join("")
+}
+
+</script>
+<style>
+body {
+	font-family: sans-serif;
+	text-align: center;
+	margin: 16px 0px 0px 0px;
+}
+#tbl {
+	margin-top: 2em;
+}
+.list {
+	vertical-align: top;
+	margin: 4px 4px 4px 20px;
+	padding: .5em;
+	background: #fff;
+	display: inline-block;
+	width: 400px;
+	height: 340px;
+	overflow: auto;
+}
+.st {
+	display: block;
+	font-size: 200%;
+	font-weight: bold;
+	color: red;
+}
+a:link {
+	color: #88d;
+}
+a:visited {
+	color: gray;
+}
+.content {
+	xtext-align: left;
+}
+/* japan */
+#japan {
+	display: inline-block;
+	width: 420px;
+	x-height: 375px;
+	min-height: 375px;
+	x-background: red;
+	position: relative;
+}
+#jp0 {
+}
+#jp0 td {
+	width: 26px;
+	height: 26px;
+	font-size: 10px;
+	vertical-align: middle;
+	text-align: center;
+	border: none;
+}
+#jp0 .pref {
+	border-radius: 4px;
+	border: 1px solid #333;
+	x-background: #faa;
+}
+#jp0 .prefsel {
+	border-radius: 4px;
+	x-background: #f88;
+}
+/* box */
+#box {
+	display: inline-block;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	width: 300px;
+	height: 110px;
+	x-background: #eee;
+	border: 1px solid #333;
+	border-radius: 4px;
+	padding: 4px;
+	text-align: center;
+	overflow: auto;
+	font-size: 75%;
+}
+#box a {
+	color: #f33 !important;
+}
+#box2 {
+	display: inline-block;
+	position: absolute;
+	bottom: 0px;
+	right: 0px;
+	width: 100px;
+	height: 32px;
+	border: 1px solid #333;
+	border-radius: 4px;
+	padding: 12px 0px 0px 0px;
+	text-align: center;
+	overflow: auto;
+	font-size: 60%;
+}
+#box2 a {
+	color: gray !important;
+}
+.content {
+	position: relative;
+	padding: 10px;
+	x-height: 380px;
+	x-background: #fee;
+}
+/* credit */
+.credit {
+	margin: 20px;
+	text-align: center;
+}
+.credit a {
+	color: gray !important;
+}
+#debug {
+	text-align: left;
+}
+textarea {
+	width: 90%;
+	height: 5em;
+}
+h1 a {
+	color: #000 !important;
+	text-decoration: none;
+}
+#tbl table {
+	border-collapse: collapse;
+	margin: 10px 5px;
+}
+#tbl th, #tbl td {
+	border: 1px solid gray;
+	word-break: break-all;
+}
+</style>
+</head>
+<body>
+
+<h1>jigintern2019 - 参加高専マップ</h1>
+<div class="content">
+<div id="japan"><span id="box"></span><span id="box2"><a href=https://docs.google.com/spreadsheets/d/1ByyqGhNBBSH7gV5IAUMaQ7zN68gEkKnSzWpJPUCdbsY/edit?usp=sharing>高専オープンデータ</a></span></div><br>
+<div id="tbl"></div>
+<div class=credit>
+DATA: CC BY <a href=https://docs.google.com/spreadsheets/d/1ByyqGhNBBSH7gV5IAUMaQ7zN68gEkKnSzWpJPUCdbsY/edit?usp=sharing>全国高専キャンパス一覧オープンデータ kosencampus</a> by <a href=http://codeforkosen.org>Code for KOSEN</a><br>
+DATA: CC BY <a href=https://docs.google.com/spreadsheets/d/1kUaqJ0R62RQpPsJLYDQfSr_nMl0pJXBGqjroSksI_g4/edit?usp=sharing>jigintern2019members</a> by <a href=https://twitter.com/jigintern>jig.jp</a><br>
+APP: CC BY <a href=https://fukuno.jig.jp/2584>jigintern2019 - 参加高専マップ</a><br>
+</div>
+</div>
+
+</body>
+</html>
